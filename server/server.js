@@ -166,6 +166,14 @@ app.get('/api/admin/stats', async (req, res) => {
 });
 
 
+// Serve Static Frontend (Production)
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
 app.listen(PORT, () => {
     console.log(`Randevu Sistemi Sunucusu çalışıyor: http://localhost:${PORT}`);
 });
