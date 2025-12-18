@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 dotenv.config();
 
 const app = express();
-const PORT = 5001; // Different port to avoid conflict with previous app (5000)
+const PORT = process.env.PORT || 5001; // Render portunu kullan, yoksa 5001
 const JWT_SECRET = 'randevu_gizli_anahtar_123';
 
 app.use(cors());
