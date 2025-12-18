@@ -25,8 +25,14 @@ function initDb() {
             category TEXT, -- Only for providers (e.g. Kuaför, Berber)
             bio TEXT, -- Only for providers
             phone TEXT,
+            working_days TEXT, -- JSON array string e.g. ["Pazartesi", "Salı"]
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // Migration for existing tables: Add working_days if not exists
+        db.run("ALTER TABLE users ADD COLUMN working_days TEXT", (err) => {
+            // Ignore error if column already exists
+        });
 
         // Appointments Table
         db.run(`CREATE TABLE IF NOT EXISTS appointments (

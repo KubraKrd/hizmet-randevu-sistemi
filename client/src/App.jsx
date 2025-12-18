@@ -40,7 +40,7 @@ const Navbar = () => {
                 <a href="/" className="logo">Randevu<b>Sistemi</b></a>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                     <span>👤 {user.full_name} ({user.role === 'provider' ? 'Uzman' : 'Müşteri'})</span>
-                    <button className="btn btn-outline" style={{ padding: '5px 15px', fontSize: '0.8rem' }} onClick={logout}>Çıkış Yap</button>
+                    <button className="btn btn-outline" style={{ padding: '5px 15px', fontSize: '0.8rem' }} onClick={logout} translate="no">Çıkış Yap</button>
                 </div>
             </div>
         </nav>

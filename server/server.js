@@ -61,7 +61,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/providers', async (req, res) => {
     const { category } = req.query;
     try {
-        let sql = "SELECT id, full_name, category, bio FROM users WHERE role = 'provider'";
+        let sql = "SELECT id, full_name, category, bio, working_days FROM users WHERE role = 'provider'";
         const params = [];
         if (category && category !== 'Tümü') {
             sql += " AND category = ?";
@@ -69,6 +69,17 @@ app.get('/api/providers', async (req, res) => {
         }
         const providers = await all(sql, params);
         res.json(providers);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Update Provider Schedule
+app.put('/api/provider/schedule', async (req, res) => {
+    const { userId, workingDays } = req.body;
+    try {
+        await run("UPDATE users SET working_days = ? WHERE id = ?", [JSON.stringify(workingDays), userId]);
+        res.json({ message: 'Çalışma günleri güncellendi.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -134,7 +145,15 @@ app.put('/api/appointments/:id/status', async (req, res) => {
     const { status } = req.body;
     try {
         await run("UPDATE appointments SET status = ? WHERE id = ?", [status, req.params.id]);
-        res.json({ message: `Randevu ${status} olarak güncellendi.` });
+
+        // Status 'rejected' means cancelled by provider
+        // Status 'cancelled' might be used if we allow user cancellation later
+
+        let msg = `Randevu ${status} olarak güncellendi.`;
+        if (status === 'approved') msg = 'Randevu ONAYLANDI. (Müşteriye SMS gitti)';
+        if (status === 'rejected') msg = 'Randevu REDDEDİLDİ / İPTAL EDİLDİ.';
+
+        res.json({ message: msg });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

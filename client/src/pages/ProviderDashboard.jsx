@@ -2,28 +2,64 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, Clock, Check, X, User } from 'lucide-react';
+import { Calendar, Clock, Check, X, User, Settings, Save } from 'lucide-react';
 
 const ProviderDashboard = () => {
     const { user } = useAuth();
     const [appointments, setAppointments] = useState([]);
+    const [workingDays, setWorkingDays] = useState([]);
+
+    const daysOfWeek = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
 
     useEffect(() => {
         loadAppointments();
+        loadSchedule();
     }, []);
 
     const loadAppointments = async () => {
         try {
-            // "role=provider" ensures we ONLY fetch appointments assigned to THIS provider
             const { data } = await axios.get(`/api/appointments/${user.id}?role=provider`);
             setAppointments(data);
         } catch (error) { console.error(error); }
     };
 
+    const loadSchedule = async () => {
+        // In a real app we might fetch this from a specific endpoint, 
+        // but for now let's assume it comes with the user or we fetch user details again
+        // For simplicity, we will just use a local state or fetch properly if needed.
+        // Actually, let's fetch the provider details to get the current working_days
+        try {
+            const { data } = await axios.get('/api/providers'); // This returns all, inefficient but works for small demo
+            const me = data.find(u => u.id === user.id);
+            if (me && me.working_days) {
+                setWorkingDays(JSON.parse(me.working_days));
+            }
+        } catch (e) {
+            console.log("Schedule load error", e);
+        }
+    };
+
+    const saveSchedule = async () => {
+        try {
+            await axios.put('/api/provider/schedule', { userId: user.id, workingDays });
+            toast.success('Çalışma günleri güncellendi!');
+        } catch (error) {
+            toast.error('Güncelleme başarısız');
+        }
+    };
+
+    const toggleDay = (day) => {
+        if (workingDays.includes(day)) {
+            setWorkingDays(workingDays.filter(d => d !== day));
+        } else {
+            setWorkingDays([...workingDays, day]);
+        }
+    };
+
     const updateStatus = async (id, status) => {
         try {
             await axios.put(`/api/appointments/${id}/status`, { status });
-            toast.success(`Randevu ${status === 'approved' ? 'ONAYLANDI' : 'REDDEDİLDİ'}. (Müşteriye SMS gitti)`);
+            toast.success(`Randevu ${status === 'approved' ? 'ONAYLANDI' : 'REDDEDİLDİ'}.`);
             loadAppointments();
         } catch (error) {
             toast.error('İşlem başarısız');
@@ -37,68 +73,104 @@ const ProviderDashboard = () => {
                     <h1>{user.category} Paneli</h1>
                     <p style={{ color: 'var(--text-muted)' }}>Hoş geldin, {user.full_name}</p>
                 </div>
-                <div>
-                    <div className="card" style={{ padding: '10px 20px', textAlign: 'center' }}>
-                        <span style={{ display: 'block', fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                            {appointments.filter(a => a.status === 'pending').length}
-                        </span>
-                        <span style={{ fontSize: '0.8rem' }}>Bekleyen İstek</span>
-                    </div>
-                </div>
+                <button onClick={saveSchedule} className="btn btn-primary">
+                    <Save size={18} /> Ayarları Kaydet
+                </button>
             </div>
 
-            <div className="card">
-                <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '15px' }}>Randevu Talepleri & Geçmişi</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem' }}>
 
-                {appointments.length === 0 ? (
-                    <p style={{ padding: '20px', color: 'gray' }}>Henüz randevu talebi yok.</p>
-                ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '15px' }}>
-                        <thead>
-                            <tr style={{ textAlign: 'left', color: 'var(--text-muted)' }}>
-                                <th style={{ padding: '10px' }}>Müşteri</th>
-                                <th style={{ padding: '10px' }}>Tarih</th>
-                                <th style={{ padding: '10px' }}>Saat</th>
-                                <th style={{ padding: '10px' }}>Durum</th>
-                                <th style={{ padding: '10px' }}>İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {appointments.map(app => (
-                                <tr key={app.id} style={{ borderTop: '1px solid #f1f5f9' }}>
-                                    <td style={{ padding: '15px', fontWeight: '500' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <User size={16} />
-                                            </div>
-                                            {app.customer_name}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: '15px' }}><span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Calendar size={14} /> {app.date}</span></td>
-                                    <td style={{ padding: '15px' }}><span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Clock size={14} /> {app.time}</span></td>
-                                    <td style={{ padding: '15px' }}>
-                                        <span className={`badge ${app.status === 'approved' ? 'bg-approved' : app.status === 'rejected' ? 'bg-pending' : ''}`}
-                                            style={{ background: app.status === 'pending' ? '#fff7ed' : undefined, color: app.status === 'pending' ? '#c2410c' : undefined }}>
-                                            {app.status === 'pending' ? 'BEKLİYOR' : app.status === 'approved' ? 'ONAYLI' : 'İPTAL'}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: '15px' }}>
-                                        {app.status === 'pending' && (
-                                            <div style={{ display: 'flex', gap: '5px' }}>
-                                                <button className="btn btn-success" style={{ padding: '5px 10px' }} onClick={() => updateStatus(app.id, 'approved')}>
-                                                    <Check size={16} /> Onayla
-                                                </button>
-                                                <button className="btn btn-danger" style={{ padding: '5px 10px' }} onClick={() => updateStatus(app.id, 'rejected')}>
-                                                    <X size={16} /> Red
-                                                </button>
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
+                {/* Sol Taraf: Ayarlar & Özet */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                    <div className="card">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+                            <Settings size={20} color="var(--primary)" />
+                            <h3>Çalışma Günleri</h3>
+                        </div>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                            Hizmet verebileceğiniz günleri seçiniz.
+                        </p>
+                        <div className="checkbox-group">
+                            {daysOfWeek.map(day => (
+                                <div
+                                    key={day}
+                                    className={`checkbox-btn ${workingDays.includes(day) ? 'active' : ''}`}
+                                    onClick={() => {
+                                        const newDays = workingDays.includes(day)
+                                            ? workingDays.filter(d => d !== day)
+                                            : [...workingDays, day];
+                                        // Sort days based on original daysOfWeek array index
+                                        newDays.sort((a, b) => daysOfWeek.indexOf(a) - daysOfWeek.indexOf(b));
+                                        setWorkingDays(newDays);
+                                    }}
+                                    translate="no"
+                                    style={{ fontSize: '0.85rem' }}
+                                >
+                                    {day}
+                                </div>
                             ))}
-                        </tbody>
-                    </table>
-                )}
+                        </div>
+                    </div>
+
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div>
+                            <h3>Bekleyenler</h3>
+                            <p style={{ color: 'var(--text-muted)' }}>Onay bekleyen randevular</p>
+                        </div>
+                        <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--warning)' }}>
+                            {appointments.filter(a => a.status === 'pending').length}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Sağ Taraf: Randevular */}
+                <div className="card">
+                    <h3 style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                        Randevu Yönetimi
+                    </h3>
+
+                    {appointments.length === 0 ? (
+                        <p style={{ padding: '1rem', color: 'var(--text-muted)' }}>Henüz randevu talebi yok.</p>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {appointments.map(app => (
+                                <div key={app.id} style={{
+                                    background: 'rgba(255,255,255,0.03)',
+                                    padding: '1.2rem',
+                                    borderRadius: '12px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    borderLeft: `4px solid ${app.status === 'approved' ? 'var(--success)' : app.status === 'rejected' ? 'var(--danger)' : 'var(--warning)'}`
+                                }}>
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+                                            <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{app.customer_name}</span>
+                                            <span className={`badge ${app.status === 'approved' ? 'bg-approved' : app.status === 'rejected' ? 'bg-rejected' : 'bg-pending'}`}>
+                                                {app.status === 'approved' ? 'ONAYLI' : app.status === 'rejected' ? 'İPTAL' : 'BEKLİYOR'}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Calendar size={14} /> {app.date}</span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={14} /> {app.time}</span>
+                                        </div>
+                                    </div>
+
+                                    {app.status === 'pending' && (
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button className="btn btn-success" style={{ padding: '0.5rem' }} onClick={() => updateStatus(app.id, 'approved')} title="Onayla">
+                                                <Check size={20} />
+                                            </button>
+                                            <button className="btn btn-danger" style={{ padding: '0.5rem' }} onClick={() => updateStatus(app.id, 'rejected')} title="Reddet">
+                                                <X size={20} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
